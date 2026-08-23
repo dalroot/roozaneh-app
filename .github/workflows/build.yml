@@ -307,14 +307,19 @@ jobs:
           
       - name: Upload Debug Symbols
         if: ${{ inputs.upload-artifact && inputs.tag-name != 'draft' }}
+        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_DIST: ${{ matrix.platform == 'android-aab' && 'google-play' || 'general' }}
         run: |
-          dart pub global activate sentry_dart_plugin
-          dart run sentry_dart_plugin 
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            dart pub global activate sentry_dart_plugin
+            dart run sentry_dart_plugin
+          else
+            echo "No Sentry auth token found. Skipping debug symbol upload."
+          fi 
       
       
 
