@@ -53,6 +53,9 @@ _unused_translations*.json
 
 /assets/core/*
 !/assets/core/.gitkeep
+!/assets/core/geoip-ir.srs
+!/assets/core/geosite-ir.srs
+!/assets/core/clash.db
 
 # Symbolication related
 app.*.symbols
