@@ -18,6 +18,11 @@ part 'general_preferences.g.dart';
 bool _debugIntroPage = false;
 
 abstract class Preferences {
+  static final selectedCountryCode = PreferencesNotifier.create<String, String>(
+    "selected_country_code",
+    "",
+  );
+
   static final introCompleted = PreferencesNotifier.create(
     "intro_completed",
     false,

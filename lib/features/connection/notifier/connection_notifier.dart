@@ -1,16 +1,17 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:roozaneh/core/haptic/haptic_service.dart';
 import 'package:roozaneh/core/localization/translations.dart';
 import 'package:roozaneh/core/preferences/general_preferences.dart';
 import 'package:roozaneh/core/router/dialog/dialog_notifier.dart';
+import 'package:roozaneh/core/utils/country_helper.dart';
 import 'package:roozaneh/features/connection/data/connection_data_providers.dart';
 import 'package:roozaneh/features/connection/data/connection_repository.dart';
-import 'package:roozaneh/features/connection/model/connection_failure.dart';
 import 'package:roozaneh/features/connection/model/connection_status.dart';
 import 'package:roozaneh/features/profile/model/profile_entity.dart';
 import 'package:roozaneh/features/profile/notifier/active_profile_notifier.dart';
-import 'package:roozaneh/hiddifycore/init_signal.dart';
+import 'package:roozaneh/features/proxy/data/proxy_data_providers.dart';
 import 'package:roozaneh/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
@@ -19,6 +20,8 @@ import 'package:rxdart/rxdart.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 part 'connection_notifier.g.dart';
+
+final connectionStepMessageProvider = StateProvider<String>((ref) => "");
 
 @Riverpod(keepAlive: true)
 class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
@@ -51,7 +54,6 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         await reconnect(next);
       }
     });
-    ref.watch(coreRestartSignalProvider);
 
     yield* _connectionRepo.watchConnectionStatus().doOnData((event) {
       if (event case Disconnected(connectionFailure: final _?) when PlatformUtils.isDesktop) {
@@ -139,31 +141,148 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       loggy.info("no active profile, not connecting");
       return;
     }
-    await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).mapLeft((
-      ConnectionFailure err,
-    ) async {
-      loggy.warning("error connecting", err);
-      //Go err is not normal object to see the go errors are string and need to be dumped
-      await ref
-          .read(dialogNotifierProvider.notifier)
-          .showCustomAlertFromErr(err.present(ref.read(translationsProvider).requireValue));
-      loggy.warning(err);
-      if (err.toString().contains("panic")) {
-        await Sentry.captureException(Exception(err.toString()));
+    final t = ref.read(translationsProvider).requireValue;
+    final dialogNotifier = ref.read(dialogNotifierProvider.notifier);
+    final startedByUser = ref.read(Preferences.startedByUser.notifier);
+    final stepNotifier = ref.read(connectionStepMessageProvider.notifier);
+    final disableMemoryLimit = ref.read(Preferences.disableMemoryLimit);
+    final selectedCountry = ref.read(Preferences.selectedCountryCode);
+    final countryName = selectedCountry.isNotEmpty ? (kCountryNames[selectedCountry]?.$1 ?? selectedCountry) : "";
+    final proxyRepo = ref.read(proxyRepositoryProvider);
+
+    try {
+      // 1. Starting core
+      stepNotifier.state = "در حال راه‌اندازی هسته شبکه...";
+
+      final connectResult = await _connectionRepo.connect(activeProfile, disableMemoryLimit).run();
+      if (connectResult.isLeft()) {
+        final err = connectResult.getLeft().toNullable()!;
+        loggy.warning("error connecting: $err");
+        stepNotifier.state = "";
+        Future.microtask(() async {
+          await dialogNotifier.showCustomAlertFromErr(err.present(t));
+        });
+        if (err.toString().contains("panic")) {
+          await Sentry.captureException(Exception(err.toString()));
+        }
+        await startedByUser.update(false);
+        state = AsyncData(Disconnected(err));
+        return;
       }
-      await ref.read(Preferences.startedByUser.notifier).update(false);
-      state = AsyncError(err, StackTrace.current);
-    }).run();
+
+      // 2. Finding fastest server (either overall or specifically for selected country)
+      if (selectedCountry.isNotEmpty) {
+        stepNotifier.state = "در حال یافتن سریع‌ترین سرور $countryName...";
+      } else {
+        stepNotifier.state = "در حال یافتن سریع‌ترین سرور...";
+      }
+
+      // Ping test on core
+      await proxyRepo.urlTest("select").run();
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      // Auto-select from chosen country's configs
+      if (selectedCountry.isNotEmpty) {
+        try {
+          final proxies = await proxyRepo.watchProxies().first;
+          final group = proxies.getOrElse((_) => null);
+          if (group != null && group.items.isNotEmpty) {
+            final countryGroups = groupProxiesByCountry(group.items, group.selected);
+            CountryGroup? match;
+            for (final c in countryGroups) {
+              if (c.code == selectedCountry) {
+                match = c;
+                break;
+              }
+            }
+            if (match != null && match.primaryProxy.tag.isNotEmpty) {
+              stepNotifier.state = "در حال برقراری اتصال به $countryName...";
+              await proxyRepo.selectProxy(group.tag, match.primaryProxy.tag).run();
+              await Future.delayed(const Duration(milliseconds: 600));
+            }
+          }
+        } catch (e) {
+          loggy.warning("error auto-selecting country proxy: $e");
+        }
+      } else {
+        stepNotifier.state = "در حال برقراری اتصال امن...";
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+
+      // 3. Verifying actual data flow (Real Connectivity Check)
+      stepNotifier.state = "بررسی تبادل داده و سلامت اتصال...";
+
+      bool isDataFlowing = false;
+      final cancelToken = CancelToken();
+      try {
+        final ipResult = await proxyRepo
+            .getCurrentIpInfo(cancelToken)
+            .run()
+            .timeout(const Duration(seconds: 8));
+        if (ipResult.isRight()) {
+          isDataFlowing = true;
+        }
+      } catch (_) {
+        isDataFlowing = false;
+      }
+
+      stepNotifier.state = "";
+
+      if (!isDataFlowing) {
+        loggy.warning("connection verification failed: zero real data flow");
+        await _disconnect();
+        Future.microtask(() async {
+          await dialogNotifier.showCustomAlertFromErr((
+            message: "اتصال ناموفق: هیچ تبادل داده‌ای با سرورهای انتخابی برقرار نشد.\nلطفاً کشور یا سرور دیگری را انتخاب نمایید.",
+            type: "ConnectionError",
+          ));
+        });
+        await startedByUser.update(false);
+        state = const AsyncData(Disconnected());
+        return;
+      }
+
+      loggy.info("connection successfully verified with genuine data flow!");
+    } catch (e, st) {
+      loggy.error("unexpected error during connection stages: $e", e, st);
+      stepNotifier.state = "";
+      await _disconnect();
+      Future.microtask(() async {
+        await dialogNotifier.showCustomAlertFromErr((
+          message: "خطا در فرآیند اتصال: $e",
+          type: "ConnectionError",
+        ));
+      });
+      await startedByUser.update(false);
+      state = const AsyncData(Disconnected());
+    }
   }
 
   Future<void> _disconnect() async {
-    await _connectionRepo.disconnect().mapLeft((err) {
-      loggy.warning("error disconnecting", err);
-      ref
-          .read(dialogNotifierProvider.notifier)
-          .showCustomAlertFromErr(err.present(ref.read(translationsProvider).requireValue));
-      state = AsyncError(err, StackTrace.current);
-    }).run();
+    final t = ref.read(translationsProvider).requireValue;
+    final dialogNotifier = ref.read(dialogNotifierProvider.notifier);
+    final stepNotifier = ref.read(connectionStepMessageProvider.notifier);
+    stepNotifier.state = "";
+
+    await _singleStart.run(
+      () async {
+        await _connectionRepo.disconnect().mapLeft((err) {
+          loggy.warning("error disconnecting", err);
+          dialogNotifier.showCustomAlertFromErr(err.present(t));
+          state = AsyncError(err, StackTrace.current);
+        }).run();
+
+        // Wait for OS socket release to prevent TUNSETIFF busy error
+        if (Platform.isLinux) {
+          await Future.delayed(const Duration(milliseconds: 600));
+        } else {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+      },
+      onIgnored: () {
+        loggy.debug("disconnect called while another operation is in progress, ignoring");
+      },
+    );
   }
 }
 

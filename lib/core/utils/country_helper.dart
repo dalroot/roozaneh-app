@@ -129,7 +129,16 @@ List<CountryGroup> groupProxiesByCountry(List<OutboundInfo> items, String? selec
     }
 
     final isSelected = proxies.any((p) => p.tag == selectedTag);
-    final primary = proxies.firstWhere((p) => p.tag == selectedTag, orElse: () => proxies.first);
+    final primary = proxies.firstWhere(
+      (p) => p.tag == selectedTag,
+      orElse: () => proxies.firstWhere(
+        (p) => ConnectionConst.isValidDelay(p.urlTestDelay),
+        orElse: () => proxies.firstWhere(
+          (p) => !p.tag.contains("تانل") && !p.tag.contains("VIP"),
+          orElse: () => proxies.first,
+        ),
+      ),
+    );
 
     final info = kCountryNames[code] ?? (code == 'OTHER' ? ('سرورهای اختصاصی', 'Custom Servers') : (code, code));
 

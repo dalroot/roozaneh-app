@@ -39,7 +39,7 @@ class AppDirectories extends _$AppDirectories with InfraLogger {
       final baseDir = await getApplicationSupportDirectory();
       final workingDir = Platform.isAndroid ? await _getAndroidWorkingDirectory() : baseDir;
       final tempDir = await getTemporaryDirectory();
-      dirs = (baseDir: baseDir, workingDir: workingDir!, tempDir: tempDir);
+      dirs = (baseDir: baseDir, workingDir: workingDir, tempDir: tempDir);
     }
 
     if (!dirs.baseDir.existsSync()) {
@@ -47,6 +47,30 @@ class AppDirectories extends _$AppDirectories with InfraLogger {
     }
     if (!dirs.workingDir.existsSync()) {
       await dirs.workingDir.create(recursive: true);
+    }
+
+    final targetDirs = {
+      Directory(p.join(dirs.workingDir.path, "data")),
+      Directory(p.join(dirs.baseDir.path, "data")),
+    };
+
+    for (final dataDir in targetDirs) {
+      if (!dataDir.existsSync()) {
+        await dataDir.create(recursive: true);
+      }
+
+      for (final filename in ['geoip-ir.srs', 'geosite-ir.srs', 'clash.db']) {
+        final targetFile = File(p.join(dataDir.path, filename));
+        if (!targetFile.existsSync() || targetFile.lengthSync() < 1000) {
+          try {
+            final byteData = await rootBundle.load('assets/core/$filename');
+            await targetFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+            loggy.info('Extracted $filename to ${dataDir.path}');
+          } catch (e) {
+            loggy.debug('Could not extract $filename to ${dataDir.path}: $e');
+          }
+        }
+      }
     }
 
     return dirs;

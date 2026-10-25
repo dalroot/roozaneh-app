@@ -312,11 +312,11 @@ class _SunPainter extends CustomPainter {
       canvas.translate(-center.dx, -center.dy);
     }
 
-    const emblemColor = Color(0xFF1E1B18); // Deep charcoal contrast
+    const emblemColor = Color(0xFF292524); // Warm deep charcoal
     final emblemPaint = Paint()
       ..color = emblemColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.2
+      ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 

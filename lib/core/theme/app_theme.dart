@@ -13,7 +13,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: const Color(0xFFFFF7ED),
+      scaffoldBackgroundColor: const Color(0xFFF9FAFB),
       fontFamily: fontFamily,
       extensions: const <ThemeExtension<dynamic>>{ConnectionButtonTheme.light},
     );
@@ -25,7 +25,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : const Color(0xFF1C0A00),
+      scaffoldBackgroundColor: mode.trueBlack ? Colors.black : const Color(0xFF0F1117),
       fontFamily: fontFamily,
       extensions: const <ThemeExtension<dynamic>>{ConnectionButtonTheme.light},
     );

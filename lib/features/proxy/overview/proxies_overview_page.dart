@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:roozaneh/core/localization/translations.dart';
 import 'package:roozaneh/core/model/constants.dart';
+import 'package:roozaneh/core/preferences/general_preferences.dart';
 import 'package:roozaneh/core/utils/country_helper.dart';
 import 'package:roozaneh/features/connection/model/connection_status.dart';
 import 'package:roozaneh/features/connection/notifier/connection_notifier.dart';
@@ -64,10 +65,8 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
       orElse: () => validItems.first,
     );
 
-    final isAutoSelected = group.selected == autoProxy.tag ||
-        group.selected.contains("lowest") ||
-        group.selected.contains("balance") ||
-        group.selected == "select";
+    final selectedCountryPref = ref.watch(Preferences.selectedCountryCode);
+    final isAutoSelected = selectedCountryPref.isEmpty;
 
     return Center(
       child: ConstrainedBox(
@@ -96,6 +95,7 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
               delay: autoProxy.urlTestDelay,
               isSelected: isAutoSelected,
               onTap: () async {
+                await ref.read(Preferences.selectedCountryCode.notifier).update("");
                 if (isConnected) {
                   await ref.read(proxiesOverviewNotifierProvider.notifier).changeProxy(group.tag, autoProxy.tag);
                 }
@@ -118,6 +118,7 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
 
             // 2. Country-Level Rows
             ...countries.map((country) {
+              final isCountrySelected = selectedCountryPref == country.code;
               return _buildLocationCard(
                 context: context,
                 title: country.nameFa,
@@ -129,8 +130,9 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
                   size: 36,
                 ),
                 delay: country.bestDelay,
-                isSelected: country.isSelected && !isAutoSelected,
+                isSelected: isCountrySelected,
                 onTap: () async {
+                  await ref.read(Preferences.selectedCountryCode.notifier).update(country.code);
                   if (isConnected) {
                     await ref.read(proxiesOverviewNotifierProvider.notifier).changeProxy(group.tag, country.primaryProxy.tag);
                   }

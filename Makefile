@@ -263,6 +263,19 @@ gen_translations: #generating missing translations using google translate
 	cd .github && bash sync_translate.sh
 	make translate
 
+# ==============================================================================
+# Local Android Build Targets (Isolated - No interference with GitHub Actions)
+# ==============================================================================
+android-local-emu:
+	pkill -9 -f "emulator" || true; pkill -9 -f "qemu" || true
+	flutter build apk --debug --target-platform android-x64
+
+android-local-arm64:
+	flutter build apk --release --target-platform android-arm64 --split-per-abi
+
+android-local-run:
+	flutter run -d emulator-5554
+
 android-release: android-apk-release android-aab-release
 
 android-apk-release:

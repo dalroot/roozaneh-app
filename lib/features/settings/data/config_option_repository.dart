@@ -93,7 +93,7 @@ abstract class ConfigOptions {
       "4.4.2.2",
       "8.8.8.8",
     ]),
-    defaultValueFunction: (ref) => ref.read(region) == Region.cn ? "223.5.5.5" : "1.1.1.1",
+    defaultValueFunction: (ref) => ref.read(region) == Region.cn ? "223.5.5.5" : "udp://1.1.1.1",
     validator: (value) => value.isNotBlank,
   );
 
@@ -143,13 +143,13 @@ abstract class ConfigOptions {
 
   static final connectionTestUrl = PreferencesNotifier.create<String, String>(
     "connection-test-url",
-    "http://captive.apple.com/hotspot-detect.html",
+    "http://www.gstatic.com/generate_204",
     possibleValues: List.of([
-      "http://connectivitycheck.gstatic.com/generate_204",
       "http://www.gstatic.com/generate_204",
       "https://www.gstatic.com/generate_204",
-      "https://redirector.googlevideo.com/generate_204",
       "http://cp.cloudflare.com",
+      "http://connectivitycheck.gstatic.com/generate_204",
+      "https://redirector.googlevideo.com/generate_204",
       "http://kernel.org",
       "http://detectportal.firefox.com",
       "http://captive.apple.com/hotspot-detect.html",

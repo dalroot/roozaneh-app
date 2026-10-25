@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -277,7 +280,37 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
                 .flatMap(
                   (_) => _singbox.validateConfigByPath(path, tempPath, debug).mapLeft(ProfileFailure.invalidConfig),
                 ),
-          );
+          )
+          .flatMap((_) => TaskEither.tryCatch(() async {
+                await _cleanBogusOutbounds(path);
+                return unit;
+              }, ProfileFailure.unexpected));
+
+  static Future<void> _cleanBogusOutbounds(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return;
+      final raw = await file.readAsString();
+      if (!raw.trim().startsWith('{')) return;
+      final data = jsonDecode(raw);
+      if (data is Map && data['outbounds'] is List) {
+        final outbounds = data['outbounds'] as List;
+        final filtered = outbounds.where((o) {
+          if (o is Map) {
+            final server = o['server']?.toString().toLowerCase().trim();
+            if (server == '127.0.0.1' || server == '0.0.0.0' || server == 'localhost') {
+              return false;
+            }
+          }
+          return true;
+        }).toList();
+        if (filtered.length != outbounds.length) {
+          data['outbounds'] = filtered;
+          await file.writeAsString(jsonEncode(data));
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   TaskEither<ProfileFailure, String> generateConfig(String id) => TaskEither.fromEither(

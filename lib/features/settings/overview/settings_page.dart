@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:roozaneh/core/localization/translations.dart';
 import 'package:roozaneh/core/router/dialog/dialog_notifier.dart';
 import 'package:roozaneh/core/router/go_router/helper/active_breakpoint_notifier.dart';
-import 'package:roozaneh/features/profile/notifier/active_profile_notifier.dart';
+// import 'package:roozaneh/features/profile/notifier/active_profile_notifier.dart';
 import 'package:roozaneh/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:roozaneh/features/settings/notifier/reset_tunnel/reset_tunnel_notifier.dart';
 import 'package:roozaneh/utils/utils.dart';
@@ -161,33 +161,34 @@ class SettingsPage extends HookConsumerWidget {
                   icon: Icons.layers_rounded,
                   namedLocation: context.namedLocation('general'),
                 ),
-                if (ref.watch(hasAnyProfileProvider).value ?? false)
-                  SettingsSection(
-                    title: t.pages.settings.chain.title,
-                    icon: Icons.webhook_rounded,
-                    subtitle: Text(t.pages.settings.chain.subtitle),
-                    namedLocation: context.namedLocation('chainOptions'),
-                  ),
-                SettingsSection(
-                  title: t.pages.settings.routing.title,
-                  icon: Icons.route_rounded,
-                  namedLocation: context.namedLocation('routingOptions'),
-                ),
-                SettingsSection(
-                  title: t.pages.settings.dns.title,
-                  icon: Icons.dns_rounded,
-                  namedLocation: context.namedLocation('dnsOptions'),
-                ),
-                SettingsSection(
-                  title: t.pages.settings.inbound.title,
-                  icon: Icons.input_rounded,
-                  namedLocation: context.namedLocation('inboundOptions'),
-                ),
-                SettingsSection(
-                  title: t.pages.settings.tlsTricks.title,
-                  icon: Icons.content_cut_rounded,
-                  namedLocation: context.namedLocation('tlsTricks'),
-                ),
+                // --- Technical & Advanced Sections (Commented out to keep UI simple and safe for end users) ---
+                // if (ref.watch(hasAnyProfileProvider).value ?? false)
+                //   SettingsSection(
+                //     title: t.pages.settings.chain.title,
+                //     icon: Icons.webhook_rounded,
+                //     subtitle: Text(t.pages.settings.chain.subtitle),
+                //     namedLocation: context.namedLocation('chainOptions'),
+                //   ),
+                // SettingsSection(
+                //   title: t.pages.settings.routing.title,
+                //   icon: Icons.route_rounded,
+                //   namedLocation: context.namedLocation('routingOptions'),
+                // ),
+                // SettingsSection(
+                //   title: t.pages.settings.dns.title,
+                //   icon: Icons.dns_rounded,
+                //   namedLocation: context.namedLocation('dnsOptions'),
+                // ),
+                // SettingsSection(
+                //   title: t.pages.settings.inbound.title,
+                //   icon: Icons.input_rounded,
+                //   namedLocation: context.namedLocation('inboundOptions'),
+                // ),
+                // SettingsSection(
+                //   title: t.pages.settings.tlsTricks.title,
+                //   icon: Icons.content_cut_rounded,
+                //   namedLocation: context.namedLocation('tlsTricks'),
+                // ),
                 if (PlatformUtils.isIOS)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -219,18 +220,17 @@ class SettingsPage extends HookConsumerWidget {
                       },
                     ),
                   ),
-                if (Breakpoint(context).isMobile()) ...[
+                SettingsSection(
+                  title: t.pages.about.title,
+                  icon: Icons.info_rounded,
+                  namedLocation: context.namedLocation('about'),
+                ),
+                if (Breakpoint(context).isMobile())
                   SettingsSection(
                     title: t.pages.logs.title,
                     icon: Icons.description_rounded,
                     namedLocation: context.namedLocation('logs'),
                   ),
-                  SettingsSection(
-                    title: t.pages.about.title,
-                    icon: Icons.info_rounded,
-                    namedLocation: context.namedLocation('about'),
-                  ),
-                ],
               ],
             ),
           ),

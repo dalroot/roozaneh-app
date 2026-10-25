@@ -141,21 +141,26 @@ class MyAdaptiveLayout extends HookConsumerWidget {
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 14),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2A2A2E) : Colors.white,
+          color: isDark ? const Color(0xFF1E2028) : Colors.white,
           borderRadius: BorderRadius.circular(36),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFFED7AA).withValues(alpha: 0.7),
-            width: 1.0,
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+            width: 0.8,
           ),
         ),
         child: Row(
@@ -165,7 +170,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
             _buildNavItem(
               context: context,
               icon: Icons.home_rounded,
-              label: "خانه",
               isSelected: currentIndex == 0,
               onTap: () {
                 if (currentIndex != 0) {
@@ -178,7 +182,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
             _buildNavItem(
               context: context,
               icon: Icons.public_rounded,
-              label: "سرورها",
               isSelected: false,
               onTap: () {
                 context.pushNamed('proxies');
@@ -189,7 +192,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
             _buildNavItem(
               context: context,
               icon: Icons.settings_rounded,
-              label: "تنظیمات",
               isSelected: currentIndex == 1,
               onTap: () {
                 if (currentIndex != 1) {
@@ -206,7 +208,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
   Widget _buildNavItem({
     required BuildContext context,
     required IconData icon,
-    required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -217,34 +218,20 @@ class MyAdaptiveLayout extends HookConsumerWidget {
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark ? const Color(0xFFFF7A3C).withValues(alpha: 0.25) : const Color(0xFFFFE8D6))
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                icon,
-                size: 24,
-                color: isSelected ? const Color(0xFFFF7A3C) : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Gap(3),
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFFFF7A3C) : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? const Color(0xFFFF7A3C).withValues(alpha: 0.2) : const Color(0xFFFFF0E6))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(
+            icon,
+            size: 24,
+            color: isSelected ? const Color(0xFFFF7A3C) : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+          ),
         ),
       ),
     );

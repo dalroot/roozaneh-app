@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:roozaneh/core/analytics/analytics_controller.dart';
 import 'package:roozaneh/core/http_client/dio_http_client.dart';
 import 'package:roozaneh/core/localization/locale_preferences.dart';
@@ -19,7 +20,6 @@ import 'package:roozaneh/features/settings/data/config_option_repository.dart';
 import 'package:roozaneh/features/settings/widget/preference_tile.dart';
 import 'package:roozaneh/gen/assets.gen.dart';
 import 'package:roozaneh/utils/utils.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class IntroPage extends HookConsumerWidget with PresLogger {
   const IntroPage({super.key});
@@ -191,7 +191,7 @@ class IntroPage extends HookConsumerWidget with PresLogger {
             loggy.info("automatically adding default Roozaneh profile");
             await ref
                 .read(addProfileNotifierProvider.notifier)
-                .addClipboard("https://xui.irn.one:2096/sub/34xjqji5cyqxe7jf?name=روزنه");
+                .addClipboard(Constants.defaultSubUrl);
           } catch (e, stackTrace) {
             loggy.error("failed to add default Roozaneh profile", e, stackTrace);
           }

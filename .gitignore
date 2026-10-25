@@ -72,3 +72,8 @@ app.*.map.json
 # Windows Self-Signed for msix
 windows/sign.pfx
 windows/sign.cer
+HANDOFF.md
+
+# Private subscription configs
+config/
+

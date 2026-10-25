@@ -141,8 +141,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # - assets/core/geoip.db
-    # - assets/core/geosite.db
+    - assets/core/geoip-ir.srs
+    - assets/core/geosite-ir.srs
+    - assets/core/clash.db
     - assets/images/logo.svg
     - assets/images/sun_icon.svg
     - assets/images/tray_icon.ico

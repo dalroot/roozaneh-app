@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:roozaneh/core/model/constants.dart';
+import 'package:roozaneh/core/preferences/general_preferences.dart';
 import 'package:roozaneh/core/utils/country_helper.dart';
 import 'package:roozaneh/features/connection/model/connection_status.dart';
 import 'package:roozaneh/features/connection/notifier/connection_notifier.dart';
@@ -13,7 +17,7 @@ import 'package:roozaneh/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:roozaneh/utils/custom_loggers.dart';
 import 'package:roozaneh/utils/number_formatters.dart';
 
-class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
+class ActiveProxyFooter extends HookConsumerWidget with InfraLogger {
   const ActiveProxyFooter({super.key});
 
   @override
@@ -28,16 +32,64 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
     final isDark = theme.brightness == Brightness.dark;
     final isConnected = connectionState == const Connected() && activeProxy != null;
 
-    final countryCode = detectCountryCode(activeProxy?.tagDisplay ?? "", activeProxy?.ipinfo.countryCode);
-    final countryInfo = kCountryNames[countryCode];
-    final String countryName;
-    if (countryInfo != null) {
-      countryName = countryInfo.$1;
-    } else if (activeProxy != null && (activeProxy.tagDisplay.toLowerCase().contains("lowest") || activeProxy.tagDisplay.toLowerCase().contains("balance") || activeProxy.tagDisplay == "select")) {
-      countryName = "اتصال هوشمند (بهترین سرور)";
-    } else if (activeProxy != null && activeProxy.tagDisplay.isNotEmpty) {
-      countryName = activeProxy.tagDisplay;
+    // Track connection session start time
+    final connectionStart = useState<DateTime?>(null);
+    useEffect(() {
+      if (isConnected) {
+        connectionStart.value ??= DateTime.now();
+      } else {
+        connectionStart.value = null;
+      }
+      return null;
+    }, [isConnected]);
+
+    // Timer that ticks every second while connected to update duration
+    final ticker = useState<int>(0);
+    useEffect(() {
+      if (!isConnected) return null;
+      final timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        ticker.value++;
+      });
+      return timer.cancel;
+    }, [isConnected]);
+
+    final duration = connectionStart.value != null
+        ? DateTime.now().difference(connectionStart.value!)
+        : Duration.zero;
+
+    final String durationText;
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    if (duration.inHours > 0) {
+      durationText = "$hours:$minutes:$seconds";
     } else {
+      durationText = "$minutes:$seconds";
+    }
+
+    final totalBytes = (stats.uplinkTotal + stats.downlinkTotal).toInt();
+    final trafficText = totalBytes > 0 ? totalBytes.size() : "۰ B";
+
+    final selectedCountryPref = ref.watch(Preferences.selectedCountryCode);
+    final String countryCode;
+    final String countryName;
+    if (activeProxy != null) {
+      countryCode = detectCountryCode(activeProxy.tagDisplay, activeProxy.ipinfo.countryCode);
+      final countryInfo = kCountryNames[countryCode];
+      if (countryInfo != null) {
+        countryName = countryInfo.$1;
+      } else if (activeProxy.tagDisplay.toLowerCase().contains("lowest") || activeProxy.tagDisplay.toLowerCase().contains("balance") || activeProxy.tagDisplay == "select") {
+        countryName = "اتصال هوشمند (بهترین سرور)";
+      } else if (activeProxy.tagDisplay.isNotEmpty) {
+        countryName = activeProxy.tagDisplay;
+      } else {
+        countryName = "اتصال هوشمند (سریع‌ترین سرور)";
+      }
+    } else if (selectedCountryPref.isNotEmpty) {
+      countryCode = selectedCountryPref;
+      countryName = kCountryNames[selectedCountryPref]?.$1 ?? selectedCountryPref;
+    } else {
+      countryCode = "";
       countryName = "اتصال هوشمند (سریع‌ترین سرور)";
     }
 
@@ -65,14 +117,19 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
             border: Border.all(
               color: isDark
                   ? theme.colorScheme.outline.withValues(alpha: 0.15)
-                  : const Color(0xFFFED7AA).withValues(alpha: 0.8),
-              width: 1.2,
+                  : Colors.black.withValues(alpha: 0.06),
+              width: 0.9,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.015),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
@@ -92,10 +149,22 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     child: Row(
                       children: [
-                        IPCountryFlag(
-                          countryCode: countryCode,
-                          organization: activeProxy?.ipinfo.org ?? "",
-                          size: 34,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                width: 0.5,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: IPCountryFlag(
+                              countryCode: countryCode,
+                              organization: activeProxy?.ipinfo.org ?? "",
+                              size: 32,
+                            ),
+                          ),
                         ),
                         const Gap(12),
                         Expanded(
@@ -134,7 +203,7 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                 ),
               ),
 
-              // 2. Integrated Live Stats Strip (Ping, Upload, Download) when connected
+              // 2. Integrated Live Stats Strip (Ping, Duration, Traffic) when connected
               if (isConnected) ...[
                 Divider(
                   height: 1,
@@ -144,47 +213,39 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
                       : theme.colorScheme.outline.withValues(alpha: 0.08),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                   child: Row(
                     children: [
-                      // Ping
+                      // 1. Ping
                       Expanded(
                         child: _StatMetric(
                           label: "پینگ",
                           value: delayText,
-                          valueColor: hasPing ? const Color(0xFF22C55E) : null,
+                          valueColor: hasPing ? const Color(0xFF10B981) : null,
                           icon: Icons.speed_rounded,
+                          iconColor: const Color(0xFF10B981),
+                        ),
+                      ),
+                      const Gap(6),
+                      // 2. Duration Timer
+                      Expanded(
+                        child: _StatMetric(
+                          label: "زمان اتصال",
+                          value: durationText,
+                          valueColor: const Color(0xFFF59E0B),
+                          icon: Icons.timer_outlined,
+                          iconColor: const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      const Gap(6),
+                      // 3. Total Data Traffic
+                      Expanded(
+                        child: _StatMetric(
+                          label: "حجم مصرفی",
+                          value: trafficText,
+                          valueColor: const Color(0xFF3B82F6),
+                          icon: Icons.data_usage_rounded,
                           iconColor: const Color(0xFF3B82F6),
-                        ),
-                      ),
-                      Container(
-                        height: 24,
-                        width: 1,
-                        color: theme.colorScheme.outline.withValues(alpha: 0.15),
-                      ),
-                      // Upload
-                      Expanded(
-                        child: _StatMetric(
-                          label: "آپلود",
-                          value: stats.uplink.toInt().speed(),
-                          valueColor: const Color(0xFFFF7A3C),
-                          icon: Icons.arrow_upward_rounded,
-                          iconColor: const Color(0xFFFF7A3C),
-                        ),
-                      ),
-                      Container(
-                        height: 24,
-                        width: 1,
-                        color: theme.colorScheme.outline.withValues(alpha: 0.15),
-                      ),
-                      // Download
-                      Expanded(
-                        child: _StatMetric(
-                          label: "دانلود",
-                          value: stats.downlink.toInt().speed(),
-                          valueColor: const Color(0xFF22C55E),
-                          icon: Icons.arrow_downward_rounded,
-                          iconColor: const Color(0xFF22C55E),
                         ),
                       ),
                     ],
@@ -217,36 +278,49 @@ class _StatMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: iconColor),
-            const Gap(4),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                fontSize: 11,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFE2E8F0).withValues(alpha: 0.8),
+          width: 0.8,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: iconColor),
+              const Gap(3),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
-        ),
-        const Gap(2),
-        Text(
-          value,
-          textDirection: TextDirection.ltr,
-          style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: valueColor ?? theme.colorScheme.onSurface,
+            ],
           ),
-        ),
-      ],
+          const Gap(3),
+          Text(
+            value,
+            textDirection: TextDirection.ltr,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 12.5,
+              color: valueColor ?? theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
