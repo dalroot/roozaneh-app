@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:roozaneh/core/haptic/haptic_service.dart';
 import 'package:roozaneh/core/localization/translations.dart';
+import 'package:roozaneh/core/preferences/general_preferences.dart';
 import 'package:roozaneh/core/router/dialog/dialog_notifier.dart';
-import 'package:roozaneh/core/router/go_router/helper/active_breakpoint_notifier.dart';
-// import 'package:roozaneh/features/profile/notifier/active_profile_notifier.dart';
+import 'package:roozaneh/features/auto_start/notifier/auto_start_notifier.dart';
+import 'package:roozaneh/features/common/general_pref_tiles.dart';
 import 'package:roozaneh/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:roozaneh/features/settings/notifier/reset_tunnel/reset_tunnel_notifier.dart';
 import 'package:roozaneh/utils/utils.dart';
@@ -156,39 +158,70 @@ class SettingsPage extends HookConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               children: [
-                SettingsSection(
-                  title: t.pages.settings.general.title,
-                  icon: Icons.layers_rounded,
-                  namedLocation: context.namedLocation('general'),
+                _buildCardSection(
+                  context: context,
+                  title: "ظاهر و زبان",
+                  children: const [
+                    LocalePrefTile(),
+                    Divider(height: 1, indent: 16, endIndent: 16),
+                    ThemeModePrefTile(),
+                  ],
                 ),
-                // --- Technical & Advanced Sections (Commented out to keep UI simple and safe for end users) ---
-                // if (ref.watch(hasAnyProfileProvider).value ?? false)
-                //   SettingsSection(
-                //     title: t.pages.settings.chain.title,
-                //     icon: Icons.webhook_rounded,
-                //     subtitle: Text(t.pages.settings.chain.subtitle),
-                //     namedLocation: context.namedLocation('chainOptions'),
-                //   ),
-                // SettingsSection(
-                //   title: t.pages.settings.routing.title,
-                //   icon: Icons.route_rounded,
-                //   namedLocation: context.namedLocation('routingOptions'),
-                // ),
-                // SettingsSection(
-                //   title: t.pages.settings.dns.title,
-                //   icon: Icons.dns_rounded,
-                //   namedLocation: context.namedLocation('dnsOptions'),
-                // ),
-                // SettingsSection(
-                //   title: t.pages.settings.inbound.title,
-                //   icon: Icons.input_rounded,
-                //   namedLocation: context.namedLocation('inboundOptions'),
-                // ),
-                // SettingsSection(
-                //   title: t.pages.settings.tlsTricks.title,
-                //   icon: Icons.content_cut_rounded,
-                //   namedLocation: context.namedLocation('tlsTricks'),
-                // ),
+                if (PlatformUtils.isDesktop || PlatformUtils.isAndroid)
+                  _buildCardSection(
+                    context: context,
+                    title: "رفتار برنامه",
+                    children: [
+                      if (PlatformUtils.isDesktop) ...[
+                        const ClosingPrefTile(),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        SwitchListTile.adaptive(
+                          title: Text(t.pages.settings.general.autoStart),
+                          secondary: const Icon(Icons.auto_mode_rounded),
+                          value: ref.watch(autoStartNotifierProvider).asData?.value ?? false,
+                          onChanged: (value) async => value
+                              ? await ref.read(autoStartNotifierProvider.notifier).enable()
+                              : await ref.read(autoStartNotifierProvider.notifier).disable(),
+                        ),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        SwitchListTile.adaptive(
+                          title: Text(t.pages.settings.general.silentStart),
+                          secondary: const Icon(Icons.visibility_off_rounded),
+                          value: ref.watch(Preferences.silentStart),
+                          onChanged: ref.read(Preferences.silentStart.notifier).update,
+                        ),
+                      ],
+                      if (PlatformUtils.isAndroid) ...[
+                        SwitchListTile.adaptive(
+                          title: Text(t.pages.settings.general.dynamicNotification),
+                          secondary: const Icon(Icons.speed_rounded),
+                          value: ref.watch(Preferences.dynamicNotification),
+                          onChanged: ref.read(Preferences.dynamicNotification.notifier).update,
+                        ),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        SwitchListTile.adaptive(
+                          title: Text(t.pages.settings.general.hapticFeedback),
+                          secondary: const Icon(Icons.vibration_rounded),
+                          value: ref.watch(hapticServiceProvider),
+                          onChanged: ref.read(hapticServiceProvider.notifier).updatePreference,
+                        ),
+                      ],
+                    ],
+                  ),
+                _buildCardSection(
+                  context: context,
+                  title: "شبکه و اتصال",
+                  children: [
+                    SwitchListTile.adaptive(
+                      title: Text(t.pages.settings.general.autoIpCheck),
+                      value: ref.watch(Preferences.autoCheckIp),
+                      secondary: const Icon(Icons.flag_rounded),
+                      onChanged: ref.read(Preferences.autoCheckIp.notifier).update,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    const EnableAnalyticsPrefTile(),
+                  ],
+                ),
                 if (PlatformUtils.isIOS)
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -220,17 +253,6 @@ class SettingsPage extends HookConsumerWidget {
                       },
                     ),
                   ),
-                SettingsSection(
-                  title: t.pages.about.title,
-                  icon: Icons.info_rounded,
-                  namedLocation: context.namedLocation('about'),
-                ),
-                if (Breakpoint(context).isMobile())
-                  SettingsSection(
-                    title: t.pages.logs.title,
-                    icon: Icons.description_rounded,
-                    namedLocation: context.namedLocation('logs'),
-                  ),
               ],
             ),
           ),
@@ -238,6 +260,56 @@ class SettingsPage extends HookConsumerWidget {
       ),
     );
   }
+}
+
+Widget _buildCardSection({
+  required BuildContext context,
+  required String title,
+  required List<Widget> children,
+}) {
+  final theme = Theme.of(context);
+  final isDark = theme.brightness == Brightness.dark;
+
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: isDark ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6) : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: isDark
+            ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+            : const Color(0xFFF0E5DE),
+        width: 1.1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFF7A3C),
+              ),
+            ),
+          ),
+          ...children,
+        ],
+      ),
+    ),
+  );
 }
 
 class SettingsSection extends HookConsumerWidget {

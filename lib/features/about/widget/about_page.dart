@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
 import 'package:roozaneh/core/app_info/app_info_provider.dart';
-import 'package:roozaneh/core/directories/directories_provider.dart';
 import 'package:roozaneh/core/localization/translations.dart';
 import 'package:roozaneh/core/model/constants.dart';
 import 'package:roozaneh/core/model/failures.dart';
@@ -236,22 +235,11 @@ class AboutPage extends HookConsumerWidget {
                       }
                     },
                   ),
-                if (PlatformUtils.isDesktop)
-                  buildTileCard(
-                    title: t.pages.about.openWorkingDir,
-                    icon: FluentIcons.open_folder_24_regular,
-                    trailing: Icon(FluentIcons.open_folder_24_regular, color: theme.colorScheme.onSurfaceVariant, size: 20),
-                    onTap: () async {
-                      final path = ref.watch(appDirectoriesProvider).requireValue.workingDir.uri;
-                      await UriUtils.tryLaunch(path);
-                    },
-                  ),
-                const Gap(8),
                 buildTileCard(
-                  title: t.pages.about.sourceCode,
-                  icon: FluentIcons.code_24_regular,
+                  title: "پشتیبانی و بازخورد",
+                  icon: FluentIcons.chat_24_regular,
                   trailing: Icon(FluentIcons.open_24_regular, color: theme.colorScheme.onSurfaceVariant, size: 20),
-                  onTap: () async => await UriUtils.tryLaunch(Uri.parse(Constants.githubUrl)),
+                  onTap: () async => await UriUtils.tryLaunch(Uri.parse("https://t.me/roozaneh_support")),
                 ),
                 buildTileCard(
                   title: t.pages.about.telegramChannel,

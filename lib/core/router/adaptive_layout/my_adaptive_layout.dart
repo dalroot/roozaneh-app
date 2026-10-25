@@ -2,14 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:roozaneh/core/localization/locale_extensions.dart';
-import 'package:roozaneh/core/localization/locale_preferences.dart';
 import 'package:roozaneh/core/localization/translations.dart';
 import 'package:roozaneh/core/router/adaptive_layout/shell_route_action.dart';
-import 'package:roozaneh/core/router/dialog/dialog_notifier.dart';
 import 'package:roozaneh/core/router/go_router/routing_config_notifier.dart';
 import 'package:roozaneh/gen/assets.gen.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class MyAdaptiveLayout extends HookConsumerWidget {
   const MyAdaptiveLayout({
@@ -79,6 +75,7 @@ class MyAdaptiveLayout extends HookConsumerWidget {
                                   itemBuilder: (context, index) {
                                     final action = _desktopActions(t)[index];
                                     final selectedIndex = _getDesktopSelectedIndex(
+                                      context,
                                       isMobileBreakpoint,
                                       showProfilesAction,
                                       navigationShell.currentIndex,
@@ -237,51 +234,44 @@ class MyAdaptiveLayout extends HookConsumerWidget {
     );
   }
 
-  int _getDesktopSelectedIndex(bool isMobileBreakpoint, bool showProfilesAction, int currentBranchIndex) {
+  int _getDesktopSelectedIndex(
+    BuildContext context,
+    bool isMobileBreakpoint,
+    bool showProfilesAction,
+    int currentBranchIndex,
+  ) {
+    try {
+      final location = GoRouterState.of(context).uri.path;
+      if (location.contains('proxies')) {
+        return 1;
+      }
+    } catch (_) {}
     final currentBranchName = getNameOfBranch(isMobileBreakpoint, showProfilesAction, currentBranchIndex);
     return switch (currentBranchName) {
       'home' => 0,
-      'settings' => 1,
+      'settings' => 2,
       'about' => 3,
-      'logs' => 4,
       _ => 0,
     };
   }
 
-  Future<void> _onDesktopTap(BuildContext context, WidgetRef ref, int actionIndex, bool isMobileBreakpoint, bool showProfilesAction) async {
-    if (actionIndex == 2) {
-      // Feedback: Open support link
-      final Uri uri = Uri.parse("https://t.me/roozaneh_support");
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    if (actionIndex == 5) {
-      // Language: Trigger native language picker modal
-      final t = ref.read(translationsProvider).requireValue;
-      final locale = ref.read(localePreferencesProvider);
-      final selectedLocale = await ref
-          .read(dialogNotifierProvider.notifier)
-          .showSettingPicker<AppLocale>(
-            title: t.pages.settings.general.locale,
-            selected: locale,
-            onReset: () => ref.read(localePreferencesProvider.notifier).changeLocale(AppLocale.en),
-            options: AppLocale.values,
-            getTitle: (e) => e.localeName,
-          );
-      if (selectedLocale != null) {
-        await ref.read(localePreferencesProvider.notifier).changeLocale(selectedLocale);
-      }
+  Future<void> _onDesktopTap(
+    BuildContext context,
+    WidgetRef ref,
+    int actionIndex,
+    bool isMobileBreakpoint,
+    bool showProfilesAction,
+  ) async {
+    if (actionIndex == 1) {
+      // Servers / Proxies overview
+      context.pushNamed('proxies');
       return;
     }
 
     final targetBranchName = switch (actionIndex) {
       0 => 'home',
-      1 => 'settings',
+      2 => 'settings',
       3 => 'about',
-      4 => 'logs',
       _ => 'home',
     };
     final realBranchIndex = getIndexOfBranch(isMobileBreakpoint, showProfilesAction, targetBranchName);
@@ -292,10 +282,8 @@ class MyAdaptiveLayout extends HookConsumerWidget {
 
   List<ShellRouteAction> _desktopActions(Translations t) => [
     ShellRouteAction(Icons.home_rounded, t.pages.home.title),
+    ShellRouteAction(Icons.public_rounded, t.pages.proxies.title),
     ShellRouteAction(Icons.settings_rounded, t.pages.settings.title),
-    ShellRouteAction(Icons.chat_bubble_outline_rounded, "بازخورد"),
     ShellRouteAction(Icons.info_outline_rounded, t.pages.about.title),
-    ShellRouteAction(Icons.bar_chart_rounded, t.pages.logs.title),
-    ShellRouteAction(Icons.language_rounded, "زبان"),
   ];
 }
