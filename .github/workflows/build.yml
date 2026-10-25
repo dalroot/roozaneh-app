@@ -198,7 +198,7 @@ jobs:
           link-to-sdk: true
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         if: startsWith(matrix.platform,'android')
       # - name: Cache Android SDK
       #   uses: actions/cache@v5
